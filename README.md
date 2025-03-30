@@ -91,10 +91,10 @@ Follow these steps to run the project locally:
 
 This project was significantly developed using AI prompting (specifically Google Gemini). It served as an experiment to explore the extent to which precise instructions given to an advanced AI could build a functional web application. The process involved approximately 8-10 iterative main prompts to implement features like PDF support, streaming, UI adjustments, and bug fixes.
 
-## �� Contributing
+## 🤝 Contributing
 
 Contributions are welcome! If you have suggestions or find bugs, please open an issue or submit a pull request.
 
-## �� License
+## 📜 License
 
-This project is licensed under the MIT License. 
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
