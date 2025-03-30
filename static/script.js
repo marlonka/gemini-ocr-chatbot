@@ -1,12 +1,13 @@
 /**
- * OCR Chatbot Frontend Script v6
+ * OCR Chatbot Frontend Script v7
  *
- * Handles file uploads, previews, API interaction (streaming),
+ * Handles file uploads, previews, API interaction (streaming), model selection,
  * theme toggling, and UI state management for the Gemini OCR Assistant.
  * Includes persistent status bar with letter-wave animation.
  */
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Element References ---
+    // Input Panel
     const ocrForm = document.getElementById('ocr-form');
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
@@ -18,19 +19,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const filenameDisplay = document.getElementById('filename-display');
     const removeImageButton = document.getElementById('remove-image-button');
     const instructionsInput = document.getElementById('instructions');
+    const modelSelect = document.getElementById('model-select'); // ***** NEW: Model select element *****
     const submitButton = document.getElementById('submit-button');
     const resetButton = document.getElementById('reset-button');
     const outputPlaceholder = document.getElementById('output-placeholder');
     const errorBanner = document.getElementById('error-banner');
     const errorMessage = document.getElementById('error-message');
     const closeErrorButton = document.getElementById('close-error-button');
+
+    // Output Panel
     const outputPanel = document.getElementById('output-panel');
     const resultArea = document.getElementById('result-area');
     const statusBar = document.getElementById('status-bar');
     const statusIcon = document.getElementById('status-icon');
-    const statusText = document.getElementById('status-text'); // Container for text or spans
+    const statusText = document.getElementById('status-text');
     const extractedTextElement = document.getElementById('extracted-text');
     const copyButton = document.getElementById('copy-button');
+
+    // Header
     const themeToggleButton = document.getElementById('theme-toggle');
     const themeIcon = themeToggleButton.querySelector('.material-symbols-outlined');
 
@@ -79,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
         displayPreview(file);
         submitButton.disabled = false;
         outputPlaceholder.hidden = true;
-        clearResultArea(); // Clear text
+        clearResultArea();
         updateStatusBar('arrow_forward', "Bereit. Klicken Sie auf 'PDF/Bild OCR starten'.");
     }
 
@@ -112,46 +118,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /** Updates UI element disabled states during processing. */
     function setFormInputsDisabled(isDisabled) {
-        const elementsToDisable = [submitButton, resetButton, instructionsInput, removeImageButton, fileInput, browseButton, dropZone];
+        // ***** MODIFIED: Include modelSelect *****
+        const elementsToDisable = [submitButton, resetButton, instructionsInput, modelSelect, removeImageButton, fileInput, browseButton, dropZone];
         elementsToDisable.forEach(el => el.disabled = isDisabled);
         dropZone.style.pointerEvents = isDisabled ? 'none' : 'auto';
     }
 
     /**
-     * Updates the persistent status bar content and appearance,
-     * creating spans for letter-wave animation if needed.
+     * Updates the persistent status bar content and appearance.
      * @param {string | null} iconName - Material Symbol name or null.
      * @param {string} text - Text content for the status bar.
      * @param {boolean} addWave - Whether to apply the letter wave animation.
      */
     function updateStatusBar(iconName, text, addWave = false) {
-        // Update Icon
-        if (iconName) {
-            statusIcon.textContent = iconName;
-            statusIcon.hidden = false;
-        } else {
-            statusIcon.hidden = true;
-        }
+        if (iconName) { statusIcon.textContent = iconName; statusIcon.hidden = false; }
+        else { statusIcon.hidden = true; }
 
-        // Update Text and Apply Animation Class/Structure
-        statusText.innerHTML = ''; // Clear previous content (text or spans)
-        statusText.classList.remove('wave-animation'); // Remove class by default
+        statusText.innerHTML = ''; // Clear previous content
+        statusText.classList.remove('wave-animation');
 
         if (addWave) {
-            // Wrap each character in a span for animation
             text.split('').forEach((char, index) => {
                 const span = document.createElement('span');
-                span.textContent = char === ' ' ? '\u00A0' : char; // Use non-breaking space for spaces
-                span.style.setProperty('--i', index); // Set custom property for animation delay
+                span.textContent = char === ' ' ? '\u00A0' : char;
+                span.style.setProperty('--i', index);
                 statusText.appendChild(span);
             });
-            statusText.classList.add('wave-animation'); // Add class to trigger span animation
+            statusText.classList.add('wave-animation');
         } else {
-            // Set plain text content
             statusText.textContent = text;
         }
-
-        statusBar.hidden = false; // Ensure status bar is visible
+        statusBar.hidden = false;
     }
 
     /** Displays an error message in the banner and updates status bar. */
@@ -159,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
         errorMessage.textContent = message;
         errorBanner.hidden = false;
         outputPlaceholder.hidden = currentFile !== null;
-        updateStatusBar('error', "Fehler bei der Analyse", false); // Update status bar (no wave on error)
+        updateStatusBar('error', "Fehler bei der Analyse", false);
     }
 
     /** Hides the error banner. */
@@ -182,18 +179,22 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetUI() {
         removePreview(); // Handles placeholder, error, results, status bar reset
         instructionsInput.value = '';
+        modelSelect.selectedIndex = 0; // Reset dropdown to the first option (default)
+        // Status bar reset is handled by removePreview -> clearResultArea
     }
 
     /** Initiates the fetch request and processes the streamed response. */
     async function processImageStream() {
         setFormInputsDisabled(true);
         hideError();
-        extractedTextElement.textContent = ''; // Clear previous text
+        extractedTextElement.textContent = '';
         updateStatusBar('neurology', "KI denkt nach...", true); // Thinking status WITH wave
 
         const formData = new FormData();
         formData.append('image', currentFile);
         formData.append('instructions', instructionsInput.value);
+        // ***** NEW: Append selected model name *****
+        formData.append('selected_model', modelSelect.value);
 
         let streamFinishedSuccessfully = false;
         let streamErrorMessage = null;
@@ -228,7 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
                          done = true;
                     } else if (chunkText) {
                         if (isFirstChunk) {
-                            // Update status bar when first *actual* text arrives
+                            // ***** MODIFIED: Update status with wave *****
                             updateStatusBar('edit', "Die KI schreibt...", true); // Writing status WITH wave
                             isFirstChunk = false;
                         }
@@ -241,7 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!streamErrorMessage) {
                  streamFinishedSuccessfully = true;
                  console.log("Stream vollständig gelesen.");
-                 if (isFirstChunk) { // Handle case where stream finished but was empty
+                 if (isFirstChunk) { // Handle empty stream case
                       updateStatusBar('block', "Kein Text gefunden oder extrahiert.", false);
                  }
             }
@@ -259,12 +260,11 @@ document.addEventListener('DOMContentLoaded', () => {
                  } else if (streamFinishedSuccessfully && isFirstChunk) {
                      updateStatusBar('block', "Kein Text gefunden oder extrahiert.", false);
                  }
-                 // If !streamFinishedSuccessfully but errorBanner is hidden, show error status
                  else if (!streamFinishedSuccessfully){
                       updateStatusBar('error', "Fehler bei der Analyse", false);
                  }
             } else {
-                 // If error banner IS shown, ensure status bar also reflects error state
+                 // Ensure status bar shows error if banner is visible
                  updateStatusBar('error', "Fehler bei der Analyse", false);
             }
         }

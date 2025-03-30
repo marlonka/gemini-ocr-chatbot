@@ -58,7 +58,51 @@ img { max-width: 100%; height: auto; display: block; }
 textarea { width: 100%; padding: 12px; border-radius: var(--border-radius-small); border: 1px solid var(--md-sys-color-outline); background-color: var(--md-sys-color-surface); color: var(--md-sys-color-on-surface); font-family: inherit; font-size: 1rem; resize: vertical; min-height: 80px; transition: border-color 0.2s ease; }
 textarea:hover { border-color: var(--md-sys-color-on-surface); }
 textarea:focus { outline: 2px solid var(--md-sys-color-primary); outline-offset: 1px; border-color: var(--md-sys-color-primary); }
-.action-buttons { order: 4; display: flex; gap: 12px; margin-top: 16px; padding-top: 0; flex-wrap: wrap; }
+
+/* ***** NEW: Model Selection Area Styles ***** */
+.model-selection-area {
+    order: 4; /* Place before action buttons */
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.model-selection-area label {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--md-sys-color-on-surface-variant);
+    padding-left: 12px;
+}
+/* Style the select element like the textarea */
+.select-input {
+    width: 100%;
+    padding: 11px 12px; /* Adjust padding slightly for select */
+    border-radius: var(--border-radius-small);
+    border: 1px solid var(--md-sys-color-outline);
+    background-color: var(--md-sys-color-surface);
+    color: var(--md-sys-color-on-surface);
+    font-family: inherit;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+    /* Add dropdown arrow */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg fill="currentColor" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"></path><path d="M0 0h24v24H0z" fill="none"></path></svg>');
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 1.2em;
+}
+.select-input:hover { border-color: var(--md-sys-color-on-surface); }
+.select-input:focus { outline: 2px solid var(--md-sys-color-primary); outline-offset: 1px; border-color: var(--md-sys-color-primary); }
+.select-input:disabled {
+    background-color: color-mix(in srgb, var(--md-sys-color-outline), transparent 80%);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+
+.action-buttons { order: 5; /* Place last */ display: flex; gap: 12px; margin-top: 16px; padding-top: 0; flex-wrap: wrap; }
 
 /* Buttons & Icons */
 .button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 24px; border-radius: var(--border-radius-full); border: none; font-family: inherit; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease; text-decoration: none; white-space: nowrap; height: 40px; letter-spacing: 0.1px; }
@@ -96,11 +140,7 @@ textarea:focus { outline: 2px solid var(--md-sys-color-primary); outline-offset:
 /* Extracted Text Area Styles */
 .extracted-text {
     flex-grow: 1; background-color: var(--md-sys-color-surface-variant); color: var(--md-sys-color-on-surface-variant); padding: 16px; border-radius: var(--border-radius-medium); overflow-y: auto; font-family: var(--md-sys-typescale-mono-font); font-size: 0.9rem; line-height: 1.6; border: 1px solid var(--md-sys-color-outline); min-height: 150px;
-    /* ***** ADDED: Word wrapping ***** */
-    white-space: pre-wrap;       /* Preserve whitespace and wrap lines */
-    overflow-wrap: break-word;   /* Break long words to prevent overflow */
-    word-break: break-word;      /* More aggressive breaking if needed (optional) */
-
+    white-space: pre-wrap; overflow-wrap: break-word; word-break: break-word;
     &:empty::before { content: "OCR Ergebnis wird hier angezeigt..."; color: var(--md-sys-color-outline); font-style: italic; display: flex; justify-content: center; align-items: center; height: 100%; min-height: 100px; }
 }
 .extracted-text:focus { outline: 2px solid var(--md-sys-color-primary); outline-offset: 1px; border-color: var(--md-sys-color-primary); }
@@ -117,4 +157,6 @@ textarea:focus { outline: 2px solid var(--md-sys-color-primary); outline-offset:
      .error-banner { margin-left: 0; margin-right: 0; border-radius: var(--border-radius-medium); }
      .input-panel-placeholder { padding: 16px; }
      .status-bar { padding-left: 0; padding-right: 0; }
+     /* Adjust select padding on mobile if needed */
+     .select-input { padding: 11px 32px 11px 12px; /* Ensure space for arrow */ }
 }

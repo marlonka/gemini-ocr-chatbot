@@ -13,13 +13,8 @@
         .material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24 }
         .icon-button .material-symbols-outlined { font-variation-settings: 'FILL' 0; }
         #theme-toggle .material-symbols-outlined { font-variation-settings: 'FILL' 0; }
-        /* Removed dot animation styles */
         [hidden] { display: none !important; }
-        /* Wave animation keyframes for letter color change */
-        @keyframes letter-wave {
-            0%, 100% { color: var(--md-sys-color-on-surface-variant); /* Start/End color */ }
-            50% { color: var(--md-sys-color-primary); /* Mid animation color */ }
-        }
+        @keyframes letter-wave { 0%, 100% { color: var(--md-sys-color-on-surface-variant); } 50% { color: var(--md-sys-color-primary); } }
     </style>
 </head>
 <body>
@@ -78,6 +73,18 @@
                     <textarea id="instructions" name="instructions" rows="4" placeholder="z.B. Nur Tabellendaten extrahieren, Dokument zusammenfassen, Adresse identifizieren"></textarea>
                 </div>
 
+                <!-- ***** NEW: Model Selection Dropdown ***** -->
+                <div class="model-selection-area">
+                    <label for="model-select">KI-Modell auswählen:</label>
+                    <select name="selected_model" id="model-select" class="select-input">
+                        <option value="gemini-2.5-pro-exp-03-25" selected>Gemini 2.5 Pro Experimental</option>
+                        <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                        <option value="gemini-2.0-flash-thinking-exp-01-21">Gemini 2.0 Flash Thinking Exp</option>
+                         <!-- Add more models here if needed, excluding image generation -->
+                    </select>
+                </div>
+
+                <!-- Action Buttons -->
                 <div class="action-buttons">
                     <button type="submit" id="submit-button" class="button filled" disabled>
                         <span class="material-symbols-outlined">document_scanner</span>
