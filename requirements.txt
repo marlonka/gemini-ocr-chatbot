@@ -1,0 +1,10 @@
+# Flask framework for building the web server
+Flask>=2.0
+# Google AI Python SDK for interacting with Gemini models
+google-generativeai>=0.5.0
+# Utility for loading environment variables from a .env file
+python-dotenv>=1.0.0
+# Python Imaging Library (Fork) for image validation
+Pillow>=9.0.0
+# Core WSGI utility library used by Flask
+Werkzeug>=2.0

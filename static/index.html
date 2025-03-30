@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini OCR Assistent</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+     <style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24 }
+        .icon-button .material-symbols-outlined { font-variation-settings: 'FILL' 0; }
+        #theme-toggle .material-symbols-outlined { font-variation-settings: 'FILL' 0; }
+        /* Removed dot animation styles */
+        [hidden] { display: none !important; }
+        /* Wave animation keyframes for letter color change */
+        @keyframes letter-wave {
+            0%, 100% { color: var(--md-sys-color-on-surface-variant); /* Start/End color */ }
+            50% { color: var(--md-sys-color-primary); /* Mid animation color */ }
+        }
+    </style>
+</head>
+<body>
+    <header class="top-app-bar">
+        <span class="material-symbols-outlined header-icon">visibility</span>
+        <h1 class="app-title">Gemini OCR Assistent</h1>
+        <button id="theme-toggle" class="icon-button" aria-label="Design wechseln">
+            <span class="material-symbols-outlined">dark_mode</span>
+        </button>
+    </header>
+
+    <main class="main-container">
+        <!-- Input Panel -->
+        <aside class="input-panel">
+             <div id="error-banner" class="error-banner" hidden role="alert">
+                <span class="material-symbols-outlined error-icon">error</span>
+                <p id="error-message"></p>
+                 <button id="close-error-button" class="icon-button close-error" aria-label="Fehler schließen">
+                    <span class="material-symbols-outlined">close</span>
+                 </button>
+            </div>
+
+            <div id="output-placeholder" class="output-placeholder input-panel-placeholder">
+                <span class="material-symbols-outlined placeholder-icon">image_search</span>
+                <p>Laden Sie eine Datei (Bild/PDF) hoch und klicken Sie auf 'PDF/Bild OCR starten', um Ergebnisse zu sehen</p>
+            </div>
+
+            <form id="ocr-form">
+                <h2>Datei hochladen</h2>
+                <div id="drop-zone" class="drop-zone" role="button" tabindex="0" aria-label="Datei-Dropzone oder zum Durchsuchen klicken">
+                    <span class="material-symbols-outlined drop-icon">upload_file</span>
+                    <p>Datei hierher ziehen oder</p>
+                    <button type="button" id="browse-button" class="button tonal">Dateien durchsuchen</button>
+                    <input type="file" id="file-input" accept="image/png, image/jpeg, image/webp, application/pdf" hidden>
+                    <p class="helper-text">Unterstützt PNG, JPG, WEBP, PDF. Max. 20MB.</p>
+                </div>
+
+                <div id="preview-area" class="preview-area" hidden>
+                    <p><strong>Vorschau:</strong></p>
+                    <div class="preview-content">
+                         <div id="preview-container">
+                            <img id="image-preview" src="#" alt="Bildvorschau" hidden/>
+                            <span id="pdf-preview-icon" class="material-symbols-outlined pdf-icon" hidden>picture_as_pdf</span>
+                         </div>
+                        <div class="preview-details">
+                             <span id="filename-display" class="filename"></span>
+                             <button type="button" id="remove-image-button" class="icon-button" aria-label="Datei entfernen">
+                                 <span class="material-symbols-outlined">close</span>
+                             </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="instructions-area">
+                    <label for="instructions">Zusätzliche Anweisungen (Optional)</label>
+                    <textarea id="instructions" name="instructions" rows="4" placeholder="z.B. Nur Tabellendaten extrahieren, Dokument zusammenfassen, Adresse identifizieren"></textarea>
+                </div>
+
+                <div class="action-buttons">
+                    <button type="submit" id="submit-button" class="button filled" disabled>
+                        <span class="material-symbols-outlined">document_scanner</span>
+                        PDF/Bild OCR starten
+                    </button>
+                     <button type="button" id="reset-button" class="button text">
+                        <span class="material-symbols-outlined">refresh</span>
+                        Neu starten
+                    </button>
+                </div>
+            </form>
+        </aside>
+
+        <!-- Output Panel -->
+        <section id="output-panel" class="output-panel" aria-live="polite">
+            <div id="result-area" class="result-area">
+                <div class="result-header">
+                    <h2>OCR Ergebnis</h2>
+                    <button id="copy-button" class="button text" aria-label="Extrahierten Text kopieren">
+                         <span class="material-symbols-outlined">content_copy</span>
+                         Text kopieren
+                    </button>
+                </div>
+
+                 <div id="status-bar" class="status-bar">
+                     <span id="status-icon" class="material-symbols-outlined status-icon"></span>
+                     <span id="status-text" class="status-text"></span>
+                 </div>
+
+                <pre id="extracted-text" class="extracted-text" tabindex="0">
+                    <!-- Text streams here -->
+                </pre>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

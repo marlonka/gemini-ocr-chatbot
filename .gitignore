@@ -1,0 +1,16 @@
+# Environment variables - NIEMALS HOCHLADEN!
+.env
+
+# Python virtual environment (falls du eins benutzt)
+venv/
+*.pyc
+__pycache__/
+*.env # Sicher ist sicher, falls Variationen existieren
+
+# IDE specific folders/files
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
