@@ -90,29 +90,17 @@ textarea:focus { outline: 2px solid var(--md-sys-color-primary); outline-offset:
 .status-bar { display: flex; align-items: center; gap: 8px; padding: 6px 0; margin-bottom: 8px; flex-shrink: 0; min-height: 28px; }
 .status-icon { font-size: 20px; color: var(--md-sys-color-on-surface-variant); flex-shrink: 0; line-height: 1; }
 .status-text { font-size: 0.875rem; color: var(--md-sys-color-on-surface-variant); flex-grow: 1; line-height: 1.4; font-style: italic; }
-
-/* ***** NEW: Letter Wave Animation Styles ***** */
-/* Target spans inside the status text ONLY when wave-animation class is present */
-.status-text.wave-animation span {
-    display: inline-block; /* Needed for animation */
-    /* Define animation properties */
-    animation-name: letter-wave;
-    animation-duration: 1.2s; /* Total duration for one color cycle */
-    animation-timing-function: ease-in-out;
-    animation-iteration-count: infinite;
-    /* Calculate delay based on the --i custom property set by JS */
-    animation-delay: calc(var(--i) * 0.06s); /* Adjust 0.06s to control wave speed */
-}
-/* Define the color change keyframes */
-@keyframes letter-wave {
-    0%, 100% { color: var(--md-sys-color-on-surface-variant); } /* Start/End color */
-    50% { color: var(--md-sys-color-primary); } /* Mid-animation color */
-}
-/* Removed old background wave styles */
+.status-text.wave-animation span { display: inline-block; animation-name: letter-wave; animation-duration: 1.2s; animation-timing-function: ease-in-out; animation-iteration-count: infinite; animation-delay: calc(var(--i) * 0.06s); }
+@keyframes letter-wave { 0%, 100% { color: var(--md-sys-color-on-surface-variant); } 50% { color: var(--md-sys-color-primary); } }
 
 /* Extracted Text Area Styles */
 .extracted-text {
     flex-grow: 1; background-color: var(--md-sys-color-surface-variant); color: var(--md-sys-color-on-surface-variant); padding: 16px; border-radius: var(--border-radius-medium); overflow-y: auto; font-family: var(--md-sys-typescale-mono-font); font-size: 0.9rem; line-height: 1.6; border: 1px solid var(--md-sys-color-outline); min-height: 150px;
+    /* ***** ADDED: Word wrapping ***** */
+    white-space: pre-wrap;       /* Preserve whitespace and wrap lines */
+    overflow-wrap: break-word;   /* Break long words to prevent overflow */
+    word-break: break-word;      /* More aggressive breaking if needed (optional) */
+
     &:empty::before { content: "OCR Ergebnis wird hier angezeigt..."; color: var(--md-sys-color-outline); font-style: italic; display: flex; justify-content: center; align-items: center; height: 100%; min-height: 100px; }
 }
 .extracted-text:focus { outline: 2px solid var(--md-sys-color-primary); outline-offset: 1px; border-color: var(--md-sys-color-primary); }
