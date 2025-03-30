@@ -21,7 +21,7 @@ Currently, the necessary API keys can be obtained for free via [Google AI Studio
 *   **File Preview:** Shows a thumbnail for images or an icon for PDFs.
 *   **Secure:** Ignores the `.env` file containing the API key via `.gitignore`.
 
-## ��️ Tech Stack
+## 🛠️ Tech Stack
 
 *   **Backend:** Python 3.x with Flask
 *   **Frontend:** Vanilla HTML, CSS, JavaScript
@@ -38,10 +38,9 @@ Follow these steps to run the project locally:
 
 2.  **Clone the Repository:**
     ```bash
-    git clone https://github.com/<YOUR_GITHUB_USERNAME>/gemini-ocr-chatbot.git
+    git clone https://github.com/marlonka/gemini-ocr-chatbot.git
     cd gemini-ocr-chatbot
     ```
-    *(Replace `<YOUR_GITHUB_USERNAME>` with your actual username after pushing the repository)*
 
 3.  **Create a Virtual Environment (Recommended):**
     *   **Linux/macOS:**
