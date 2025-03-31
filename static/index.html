@@ -1,9 +1,11 @@
 <!DOCTYPE html>
+<!-- Default lang attribute, JS will update if needed -->
 <html lang="de">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gemini OCR Assistent</title>
+    <!-- Title will be updated by JS -->
+    <title>Gemini OCR Assistant</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,6 +15,7 @@
         .material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24 }
         .icon-button .material-symbols-outlined { font-variation-settings: 'FILL' 0; }
         #theme-toggle .material-symbols-outlined { font-variation-settings: 'FILL' 0; }
+        #lang-icon { font-variation-settings: 'FILL' 0; } /* Keep globe outlined */
         [hidden] { display: none !important; }
         @keyframes letter-wave { 0%, 100% { color: var(--md-sys-color-on-surface-variant); } 50% { color: var(--md-sys-color-primary); } }
     </style>
@@ -20,8 +23,18 @@
 <body>
     <header class="top-app-bar">
         <span class="material-symbols-outlined header-icon">visibility</span>
-        <h1 class="app-title">Gemini OCR Assistent</h1>
-        <button id="theme-toggle" class="icon-button" aria-label="Design wechseln">
+        <h1 id="app-title" class="app-title">Gemini OCR Assistent</h1> <!-- Added ID -->
+
+        <!-- ***** NEW: Language Selector ***** -->
+        <div class="language-selector">
+             <span id="lang-icon" class="material-symbols-outlined">language</span>
+             <select id="language-select" aria-label="Sprache auswählen"> <!-- aria-label updated by JS -->
+                 <option value="de">Deutsch</option>
+                 <option value="en">English</option>
+             </select>
+        </div>
+
+        <button id="theme-toggle" class="icon-button" aria-label="Design wechseln"> <!-- aria-label updated by JS -->
             <span class="material-symbols-outlined">dark_mode</span>
         </button>
     </header>
@@ -32,36 +45,37 @@
              <div id="error-banner" class="error-banner" hidden role="alert">
                 <span class="material-symbols-outlined error-icon">error</span>
                 <p id="error-message"></p>
-                 <button id="close-error-button" class="icon-button close-error" aria-label="Fehler schließen">
+                 <button id="close-error-button" class="icon-button close-error" aria-label="Fehler schließen"> <!-- aria-label updated by JS -->
                     <span class="material-symbols-outlined">close</span>
                  </button>
             </div>
 
             <div id="output-placeholder" class="output-placeholder input-panel-placeholder">
                 <span class="material-symbols-outlined placeholder-icon">image_search</span>
-                <p>Laden Sie eine Datei (Bild/PDF) hoch und klicken Sie auf 'PDF/Bild OCR starten', um Ergebnisse zu sehen</p>
+                <!-- Text content updated by JS -->
+                <p data-translate-key="placeholderText">Laden Sie eine Datei (Bild/PDF) hoch und klicken Sie auf 'PDF/Bild OCR starten', um Ergebnisse zu sehen</p>
             </div>
 
             <form id="ocr-form">
-                <h2>Datei hochladen</h2>
-                <div id="drop-zone" class="drop-zone" role="button" tabindex="0" aria-label="Datei-Dropzone oder zum Durchsuchen klicken">
+                <h2 data-translate-key="uploadHeading">Datei hochladen</h2>
+                <div id="drop-zone" class="drop-zone" role="button" tabindex="0" data-translate-aria-key="dropzoneAriaLabel" aria-label="Datei-Dropzone oder zum Durchsuchen klicken">
                     <span class="material-symbols-outlined drop-icon">upload_file</span>
-                    <p>Datei hierher ziehen oder</p>
-                    <button type="button" id="browse-button" class="button tonal">Dateien durchsuchen</button>
+                    <p data-translate-key="dropzoneText">Datei hierher ziehen oder</p>
+                    <button type="button" id="browse-button" class="button tonal" data-translate-key="browseButton">Dateien durchsuchen</button>
                     <input type="file" id="file-input" accept="image/png, image/jpeg, image/webp, application/pdf" hidden>
-                    <p class="helper-text">Unterstützt PNG, JPG, WEBP, PDF. Max. 20MB.</p>
+                    <p class="helper-text" data-translate-key="helperText">Unterstützt PNG, JPG, WEBP, PDF. Max. 20MB.</p>
                 </div>
 
                 <div id="preview-area" class="preview-area" hidden>
-                    <p><strong>Vorschau:</strong></p>
+                    <p><strong data-translate-key="previewLabel">Vorschau:</strong></p>
                     <div class="preview-content">
                          <div id="preview-container">
-                            <img id="image-preview" src="#" alt="Bildvorschau" hidden/>
+                            <img id="image-preview" src="#" alt="Bildvorschau" data-translate-alt-key="imagePreviewAlt" hidden/>
                             <span id="pdf-preview-icon" class="material-symbols-outlined pdf-icon" hidden>picture_as_pdf</span>
                          </div>
                         <div class="preview-details">
                              <span id="filename-display" class="filename"></span>
-                             <button type="button" id="remove-image-button" class="icon-button" aria-label="Datei entfernen">
+                             <button type="button" id="remove-image-button" class="icon-button" data-translate-aria-key="removeFileAriaLabel" aria-label="Datei entfernen">
                                  <span class="material-symbols-outlined">close</span>
                              </button>
                         </div>
@@ -69,28 +83,18 @@
                 </div>
 
                 <div class="instructions-area">
-                    <label for="instructions">Zusätzliche Anweisungen (Optional)</label>
-                    <textarea id="instructions" name="instructions" rows="4" placeholder="z.B. Nur Tabellendaten extrahieren, Dokument zusammenfassen, Adresse identifizieren"></textarea>
+                    <label for="instructions" data-translate-key="instructionsLabel">Zusätzliche Anweisungen (Optional)</label>
+                    <textarea id="instructions" name="instructions" rows="4" data-translate-placeholder-key="instructionsPlaceholder" placeholder="z.B. Nur Tabellendaten extrahieren, Dokument zusammenfassen, Adresse identifizieren"></textarea>
                 </div>
 
-                <!-- ***** NEW: Model Selection Dropdown ***** -->
-                <div class="model-selection-area">
-                    <label for="model-select">KI-Modell auswählen:</label>
-                    <select name="selected_model" id="model-select" class="select-input">
-                        <option value="gemini-2.5-pro-exp-03-25" selected>Gemini 2.5 Pro Experimental</option>
-                        <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                        <option value="gemini-2.0-flash-thinking-exp-01-21">Gemini 2.0 Flash Thinking Exp</option>
-                         <!-- Add more models here if needed, excluding image generation -->
-                    </select>
-                </div>
+                <!-- Removed Model Selection -->
 
-                <!-- Action Buttons -->
                 <div class="action-buttons">
-                    <button type="submit" id="submit-button" class="button filled" disabled>
+                    <button type="submit" id="submit-button" class="button filled" data-translate-key="submitButton" disabled>
                         <span class="material-symbols-outlined">document_scanner</span>
                         PDF/Bild OCR starten
                     </button>
-                     <button type="button" id="reset-button" class="button text">
+                     <button type="button" id="reset-button" class="button text" data-translate-key="resetButton">
                         <span class="material-symbols-outlined">refresh</span>
                         Neu starten
                     </button>
@@ -102,9 +106,10 @@
         <section id="output-panel" class="output-panel" aria-live="polite">
             <div id="result-area" class="result-area">
                 <div class="result-header">
-                    <h2>OCR Ergebnis</h2>
-                    <button id="copy-button" class="button text" aria-label="Extrahierten Text kopieren">
+                    <h2 data-translate-key="resultsHeading">OCR Ergebnis</h2>
+                    <button id="copy-button" class="button text" data-translate-key="copyButton" data-translate-aria-key="copyButtonAriaLabel" aria-label="Extrahierten Text kopieren">
                          <span class="material-symbols-outlined">content_copy</span>
+                         <!-- Text updated by JS -->
                          Text kopieren
                     </button>
                 </div>
@@ -114,13 +119,14 @@
                      <span id="status-text" class="status-text"></span>
                  </div>
 
-                <pre id="extracted-text" class="extracted-text" tabindex="0">
+                <pre id="extracted-text" class="extracted-text" tabindex="0" data-translate-placeholder-key="extractedTextPlaceholder">
                     <!-- Text streams here -->
                 </pre>
             </div>
         </section>
     </main>
 
+    <!-- Reference the script -->
     <script src="script.js"></script>
 </body>
 </html>
