@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Default lang attribute, JS will update if needed -->
+<!-- Default lang attribute, JS will update -->
 <html lang="de">
 <head>
     <meta charset="UTF-8">
@@ -17,15 +17,25 @@
         #theme-toggle .material-symbols-outlined { font-variation-settings: 'FILL' 0; }
         #lang-icon { font-variation-settings: 'FILL' 0; } /* Keep globe outlined */
         [hidden] { display: none !important; }
-        @keyframes letter-wave { 0%, 100% { color: var(--md-sys-color-on-surface-variant); } 50% { color: var(--md-sys-color-primary); } }
+        /* Wave animation keyframes */
+        @keyframes letter-wave {
+            0%, 100% { color: var(--md-sys-color-on-surface-variant); }
+            50% { color: var(--md-sys-color-primary); }
+        }
+        /* Style for model select */
+        .model-selection-area { order: 4; display: flex; flex-direction: column; gap: 4px; margin-top: 8px;}
+        .model-selection-area label { font-size: 0.75rem; font-weight: 400; color: var(--md-sys-color-on-surface-variant); padding-left: 12px; }
+        .model-selection-area select { width: 100%; padding: 10px 24px 10px 12px; border-radius: var(--border-radius-small); border: 1px solid var(--md-sys-color-outline); background-color: var(--md-sys-color-surface); color: var(--md-sys-color-on-surface); font-family: inherit; font-size: 0.9rem; cursor: pointer; appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: url('data:image/svg+xml;utf8,<svg fill="currentColor" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"></path><path d="M0 0h24v24H0z" fill="none"></path></svg>'); background-repeat: no-repeat; background-position: right 8px center; background-size: 1.2em; }
+        .model-selection-area select:hover { border-color: var(--md-sys-color-on-surface); }
+        .model-selection-area select:focus { outline: 2px solid var(--md-sys-color-primary); outline-offset: 1px; border-color: var(--md-sys-color-primary); }
+        .model-selection-area select:disabled { background-color: color-mix(in srgb, var(--md-sys-color-outline), transparent 80%); cursor: not-allowed; opacity: 0.6; }
     </style>
 </head>
 <body>
     <header class="top-app-bar">
         <span class="material-symbols-outlined header-icon">visibility</span>
-        <h1 id="app-title" class="app-title">Gemini OCR Assistent</h1> <!-- Added ID -->
+        <h1 id="app-title" class="app-title">Gemini OCR Assistent</h1>
 
-        <!-- ***** NEW: Language Selector ***** -->
         <div class="language-selector">
              <span id="lang-icon" class="material-symbols-outlined">language</span>
              <select id="language-select" aria-label="Sprache auswählen"> <!-- aria-label updated by JS -->
@@ -41,22 +51,21 @@
 
     <main class="main-container">
         <!-- Input Panel -->
-        <aside class="input-panel">
+        <aside id="input-panel" class="input-panel">
              <div id="error-banner" class="error-banner" hidden role="alert">
                 <span class="material-symbols-outlined error-icon">error</span>
                 <p id="error-message"></p>
-                 <button id="close-error-button" class="icon-button close-error" aria-label="Fehler schließen"> <!-- aria-label updated by JS -->
+                 <button id="close-error-button" class="icon-button close-error" aria-label="Fehler schließen">
                     <span class="material-symbols-outlined">close</span>
                  </button>
             </div>
 
             <div id="output-placeholder" class="output-placeholder input-panel-placeholder">
                 <span class="material-symbols-outlined placeholder-icon">image_search</span>
-                <!-- Text content updated by JS -->
-                <p data-translate-key="placeholderText">Laden Sie eine Datei (Bild/PDF) hoch und klicken Sie auf 'PDF/Bild OCR starten', um Ergebnisse zu sehen</p>
+                <p data-translate-key="placeholderText">Laden Sie eine Datei (Bild/PDF) hoch...</p>
             </div>
 
-            <form id="ocr-form">
+            <form id="ocr-form" aria-busy="false">
                 <h2 data-translate-key="uploadHeading">Datei hochladen</h2>
                 <div id="drop-zone" class="drop-zone" role="button" tabindex="0" data-translate-aria-key="dropzoneAriaLabel" aria-label="Datei-Dropzone oder zum Durchsuchen klicken">
                     <span class="material-symbols-outlined drop-icon">upload_file</span>
@@ -83,11 +92,22 @@
                 </div>
 
                 <div class="instructions-area">
-                    <label for="instructions" data-translate-key="instructionsLabel">Zusätzliche Anweisungen (Optional)</label>
-                    <textarea id="instructions" name="instructions" rows="4" data-translate-placeholder-key="instructionsPlaceholder" placeholder="z.B. Nur Tabellendaten extrahieren, Dokument zusammenfassen, Adresse identifizieren"></textarea>
+                    <label for="instructions" id="instructions-label" data-translate-key="instructionsLabel">Zusätzliche Anweisungen (Optional)</label>
+                    <textarea id="instructions" name="instructions" rows="4" data-translate-placeholder-key="instructionsPlaceholder" placeholder="z.B. Nur Tabellendaten extrahieren..." aria-describedby="instructions-label"></textarea>
                 </div>
 
-                <!-- Removed Model Selection -->
+                <!-- === NEW: Model Selection Area === -->
+                <div class="model-selection-area">
+                    <label for="model-select" data-translate-key="modelSelectLabel">KI-Modell auswählen:</label>
+                    <select id="model-select" name="model_name">
+                         <!-- Default Selection -->
+                        <option value="gemini-2.5-pro-exp-03-25" selected>Gemini 2.5 Pro Exp 03-25 (Default)</option>
+                        <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                        <option value="gemini-2.0-flash-thinking-exp-01-21">Gemini 2.0 Flash Thinking Exp 01-21</option>
+                    </select>
+                </div>
+                <!-- === END: Model Selection Area === -->
+
 
                 <div class="action-buttons">
                     <button type="submit" id="submit-button" class="button filled" data-translate-key="submitButton" disabled>
@@ -103,18 +123,17 @@
         </aside>
 
         <!-- Output Panel -->
-        <section id="output-panel" class="output-panel" aria-live="polite">
+        <section id="output-panel" class="output-panel" aria-live="polite" aria-busy="false">
             <div id="result-area" class="result-area">
                 <div class="result-header">
                     <h2 data-translate-key="resultsHeading">OCR Ergebnis</h2>
                     <button id="copy-button" class="button text" data-translate-key="copyButton" data-translate-aria-key="copyButtonAriaLabel" aria-label="Extrahierten Text kopieren">
                          <span class="material-symbols-outlined">content_copy</span>
-                         <!-- Text updated by JS -->
                          Text kopieren
                     </button>
                 </div>
 
-                 <div id="status-bar" class="status-bar">
+                 <div id="status-bar" class="status-bar" aria-live="polite" aria-atomic="true">
                      <span id="status-icon" class="material-symbols-outlined status-icon"></span>
                      <span id="status-text" class="status-text"></span>
                  </div>
@@ -126,7 +145,6 @@
         </section>
     </main>
 
-    <!-- Reference the script -->
     <script src="script.js"></script>
 </body>
 </html>

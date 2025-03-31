@@ -2,6 +2,7 @@
 import os
 import io
 import traceback
+import logging # Use logging instead of print
 
 # Third-party library imports
 import google.generativeai as genai
@@ -14,39 +15,47 @@ from PIL import Image, UnidentifiedImageError
 # --- Application Configuration ---
 load_dotenv()
 API_KEY = os.getenv("GOOGLE_API_KEY")
-# Default model used if frontend doesn't specify or on error
+
+# Define allowed models and the default
+ALLOWED_MODELS = {
+    "gemini-2.5-pro-exp-03-25",
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-thinking-exp-01-21"
+}
 DEFAULT_MODEL_NAME = "gemini-2.5-pro-exp-03-25"
+
+# File Handling Config
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'pdf'}
-MAX_FILE_SIZE = 20 * 1024 * 1024
+MAX_FILE_SIZE = 20 * 1024 * 1024 # 20 MB
+
+# AI Model Configuration (applied dynamically)
+SYS_INSTRUCTION = """You are a sophisticated OCR assistant. Your task is to accurately extract text from the provided file (image or PDF document).
+- Preserve the original formatting as much as possible, including line breaks, paragraphs, and indentations.
+- When processing a multi-page PDF, clearly indicate the start of each new page with a marker like '--- Page [PageNumber] ---' on its own line before the content of that page begins. Start with Page 1.
+- Respond *only* with the extracted text and the page markers. Do not add introductory or concluding remarks like 'Here is the text...' or 'Document analysis complete.'."""
+GENERATION_CONFIG = { "temperature": 0.3 }
+
+# --- Logging Setup ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Flask Application Setup ---
 app = Flask(__name__, static_folder='static', static_url_path='')
 app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
 
-# --- Gemini AI Client Setup ---
-# Configure the SDK globally, but initialize the specific model per request
+# --- Gemini AI Client Setup (Configuration only) ---
 sdk_configured_successfully = False
 try:
     if not API_KEY:
-        raise ValueError("GOOGLE_API_KEY nicht in Umgebungsvariablen gefunden. Wurde eine .env Datei erstellt?")
+        raise ValueError("GOOGLE_API_KEY not found in environment variables. Was a .env file created?")
     genai.configure(api_key=API_KEY)
-    print("Gemini SDK erfolgreich konfiguriert.")
-    sdk_configured_successfully = True # Flag successful configuration
+    logging.info("Google Generative AI SDK configured successfully.")
+    sdk_configured_successfully = True
 except Exception as e:
-    print(f"Fataler Fehler: Konnte Gemini SDK nicht konfigurieren ({type(e).__name__}): {e}")
+    logging.critical(f"Fatal Error: Could not configure Gemini SDK ({type(e).__name__}): {e}")
     if "API key" in str(e) or "credential" in str(e).lower():
-         print("-> Bitte stellen Sie sicher, dass Ihr GOOGLE_API_KEY in der .env Datei korrekt gesetzt und gültig ist.")
+         logging.critical("-> Please ensure your GOOGLE_API_KEY is correctly set in the .env file and is valid.")
     else:
-         traceback.print_exc()
-         print("-> Überprüfen Sie die SDK-Konfiguration und -Installation.")
-
-# --- System Instruction and Base Generation Config (Applied per request) ---
-SYS_INSTRUCTION = """Du bist ein hochentwickelter OCR-Assistent. Deine Aufgabe ist es, Text aus der bereitgestellten Datei (Bild oder PDF-Dokument) präzise zu extrahieren.
-- Behalte die ursprüngliche Formatierung so weit wie möglich bei, einschließlich Zeilenumbrüchen, Absätzen und Einzügen.
-- Wenn du ein mehrseitiges PDF verarbeitest, kennzeichne den Beginn jeder neuen Seite deutlich mit einer Markierung wie '--- Seite [Seitenzahl] ---' in einer eigenen Zeile, bevor der Inhalt dieser Seite beginnt. Beginne mit Seite 1.
-- Antworte *nur* mit dem extrahierten Text und den Seitenmarkierungen. Füge keine einleitenden oder abschließenden Bemerkungen wie 'Hier ist der Text...' oder 'Die Dokumentanalyse ist abgeschlossen.' hinzu."""
-
-GENERATION_CONFIG = { "temperature": 0.3 }
+         logging.exception("-> Unexpected error during SDK configuration.") # Logs traceback
 
 # --- Helper Functions ---
 def allowed_file(filename: str) -> bool:
@@ -58,121 +67,145 @@ def allowed_file(filename: str) -> bool:
 @app.route('/')
 def index():
     """Serves the main index.html page."""
-    # Check if the SDK itself was configured, not a specific model instance
     if not sdk_configured_successfully:
-         return "Fehler: Gemini SDK konnte nicht initialisiert werden. Server-Logs prüfen.", 500
+         # Provide a more user-friendly error message if possible, but keep details in server logs
+         return "Error: The AI service could not be initialized. Please check server logs.", 500
     return send_from_directory(app.static_folder, 'index.html')
 
 @app.route('/process_image', methods=['POST'])
 def process_image():
-    """
-    Handles file uploads, selects the Gemini model based on user input,
-    and streams OCR results back to the client.
-    """
-    # Check if SDK is configured before proceeding
+    """Handles file uploads and streams OCR results from a dynamically selected Gemini model."""
     if not sdk_configured_successfully:
-        return Response('{"error": "Gemini SDK ist auf dem Server nicht konfiguriert."}', status=500, mimetype='application/json')
+        logging.error("process_image called but SDK is not configured.")
+        return Response('{"error": "AI service is not configured on the server."}', status=500, mimetype='application/json')
 
-    # --- Request Validation ---
+    # --- Get Form Data ---
     if 'image' not in request.files:
-        return Response('{"error": "Kein \'image\'-Teil in der Anfrage"}', status=400, mimetype='application/json')
+        logging.warning("Missing 'image' part in request files.")
+        return Response('{"error": "No \'image\' part in the request"}', status=400, mimetype='application/json')
 
     file = request.files['image']
     instructions = request.form.get('instructions', '')
-    # Get selected model from form data, fallback to default
-    selected_model_name = request.form.get('selected_model', DEFAULT_MODEL_NAME)
+    selected_model_name = request.form.get('model_name', DEFAULT_MODEL_NAME) # Get selected model or use default
 
+    # --- Validate Model Selection ---
+    if selected_model_name not in ALLOWED_MODELS:
+        logging.warning(f"Invalid model selected by user: {selected_model_name}")
+        return Response(f'{{"error": "Invalid AI model selected."}}', status=400, mimetype='application/json')
+
+    # --- Validate File ---
     if file.filename == '':
-        return Response('{"error": "Keine Datei ausgewählt"}', status=400, mimetype='application/json')
+        logging.warning("No file selected in the request.")
+        return Response('{"error": "No file selected"}', status=400, mimetype='application/json')
 
     file_extension = ''
     if '.' in file.filename:
         file_extension = file.filename.rsplit('.', 1)[1].lower()
 
     if not allowed_file(file.filename):
-         return Response(f'{{"error": "Ungültiger Dateityp. Erlaubt: {", ".join(ALLOWED_EXTENSIONS)}"}}', status=400, mimetype='application/json')
+         logging.warning(f"Invalid file type uploaded: {file.filename}")
+         allowed_types_str = ", ".join(ALLOWED_EXTENSIONS)
+         return Response(f'{{"error": "Invalid file type. Allowed: {allowed_types_str}"}}', status=400, mimetype='application/json')
 
-    # --- File Processing and Model Initialization (per request) ---
     try:
+        # --- Read and Validate File Content ---
         file_bytes = file.read()
         file_mimetype = file.mimetype
+        logging.info(f"Received file: {file.filename} ({file_mimetype}), Size: {len(file_bytes)} bytes")
 
-        # Validate images using Pillow if applicable
+        # Basic validation for non-PDFs using Pillow
         if file_extension != 'pdf':
             try:
-                img = Image.open(io.BytesIO(file_bytes))
-                img.verify()
-                if img.format and img.format.lower() not in ALLOWED_EXTENSIONS:
-                     return Response(f'{{"error": "Ungültiges Bildformat von Pillow erkannt: {img.format}"}}', status=400, mimetype='application/json')
+                with Image.open(io.BytesIO(file_bytes)) as img:
+                    img.verify() # Check for corruption
+                    # Double-check format if possible
+                    detected_format = img.format.lower() if img.format else 'unknown'
+                    logging.info(f"Pillow detected image format: {detected_format}")
+                    # Allow common variations for jpeg
+                    allowed_image_formats = {'png', 'jpeg', 'webp'}
+                    if detected_format not in allowed_image_formats and detected_format != 'unknown':
+                         logging.warning(f"Pillow detected disallowed format: {detected_format}")
+                         return Response(f'{{"error": "Invalid image format detected: {detected_format}"}}', status=400, mimetype='application/json')
             except UnidentifiedImageError:
-                 return Response('{"error": "Bilddatei kann nicht identifiziert werden."}', status=400, mimetype='application/json')
+                 logging.warning(f"Pillow could not identify image file: {file.filename}")
+                 return Response('{"error": "Cannot identify image file. It might be corrupt or unsupported."}', status=400, mimetype='application/json')
             except Exception as pil_error:
-                 print(f"Pillow Fehler: {pil_error}")
-                 return Response('{"error": "Fehler beim Verarbeiten der Bilddaten."}', status=400, mimetype='application/json')
+                 logging.exception(f"Pillow error processing file {file.filename}")
+                 return Response('{"error": "Error processing image data."}', status=400, mimetype='application/json')
 
-        # Prepare file part for the API call
+        # --- Prepare Content for Gemini ---
         file_part = { "mime_type": file_mimetype, "data": file_bytes }
-
-        # Construct content list (instructions + file)
         contents = []
-        if instructions: contents.append(f"Zusätzliche Benutzeranweisung: {instructions}")
+        if instructions:
+            contents.append(f"Additional user instruction: {instructions}")
+            logging.info(f"Using additional instructions: {instructions[:100]}...") # Log truncated instructions
         contents.append(file_part)
 
-        # --- Initialize the specific model instance for *this* request ---
-        print(f"Initialisiere Modell für diese Anfrage: {selected_model_name}")
+        logging.info(f"Starting stream for Gemini using model: {selected_model_name}.")
+
+        # --- Initialize Model and Generate Content ---
         try:
-            request_model = genai.GenerativeModel(
+            # Initialize model dynamically based on selection FOR THIS REQUEST
+            dynamic_model = genai.GenerativeModel(
                 selected_model_name,
                 generation_config=GENERATION_CONFIG,
                 system_instruction=SYS_INSTRUCTION
             )
-            print(f"Modell {selected_model_name} erfolgreich für Anfrage initialisiert.")
+            logging.info(f"Successfully initialized dynamic model instance: {selected_model_name}")
+
+            # --- Streaming Generator Function ---
+            def generate_chunks():
+                """Yields text chunks from the Gemini API stream."""
+                try:
+                    response_stream = dynamic_model.generate_content(contents, stream=True)
+                    for chunk in response_stream:
+                        if chunk.text:
+                            yield chunk.text
+                        # Log safety ratings or block reasons if present
+                        elif chunk.prompt_feedback and chunk.prompt_feedback.block_reason:
+                             logging.warning(f"Stream blocked by API. Reason: {chunk.prompt_feedback.block_reason}")
+                             yield f'<<ERROR: Request blocked ({chunk.prompt_feedback.block_reason})>>'
+                             break # Stop generation
+                        elif chunk.candidates and chunk.candidates[0].finish_reason.name != "STOP":
+                             # Log other finish reasons like MAX_TOKENS, SAFETY, RECITATION etc.
+                             finish_reason = chunk.candidates[0].finish_reason.name
+                             logging.warning(f"Stream stopped prematurely by API. Reason: {finish_reason}")
+                             yield f'<<ERROR: Generation stopped ({finish_reason})>>'
+                             break # Stop generation
+
+                    logging.info(f"Stream from {selected_model_name} completed successfully.")
+
+                # Handle specific API errors during generation
+                except genai.types.BlockedPromptException as e:
+                     logging.warning(f"Stream blocked (BlockedPromptException) for model {selected_model_name}: {e}")
+                     yield f'<<ERROR: Request blocked (Safety)>>'
+                except genai.types.StopCandidateException as e:
+                     reason = e.candidate.finish_reason.name if (e.candidate and e.candidate.finish_reason) else "Unknown"
+                     logging.warning(f"Stream stopped (StopCandidateException - {reason}) for model {selected_model_name}: {e}")
+                     yield f'<<ERROR: Request stopped ({reason})>>'
+                except Exception as e:
+                    logging.exception(f"Error during streaming with {selected_model_name}") # Logs traceback
+                    yield f'<<ERROR: Server error during generation>>'
+
+            return Response(stream_with_context(generate_chunks()), mimetype='text/plain; charset=utf-8')
+
         except Exception as model_init_error:
-            # Handle errors during model initialization (e.g., invalid name)
-            print(f"Fehler bei Initialisierung von Modell {selected_model_name}: {model_init_error}")
-            traceback.print_exc()
-            # Return a JSON error as streaming cannot start
-            return jsonify({"error": f"Fehler bei Auswahl des Modells '{selected_model_name}'. Existiert es oder haben Sie Zugriff?"}), 500
+            logging.exception(f"Failed to initialize or use Gemini model '{selected_model_name}'")
+            return Response(f'{{"error": "Failed to initialize selected AI model."}}', status=500, mimetype='application/json')
 
-        print(f"Starte Stream für Gemini (Modell: {selected_model_name}). MimeType: {file_mimetype}.")
-
-        # --- Streaming Generator Function ---
-        def generate_chunks():
-            """Yields text chunks from the selected Gemini API model stream."""
-            try:
-                # Use the request-specific model instance
-                response_stream = request_model.generate_content(contents, stream=True)
-                for chunk in response_stream:
-                    if chunk.text: yield chunk.text
-                    elif not chunk.candidates and not (chunk.prompt_feedback and chunk.prompt_feedback.block_reason):
-                            print(f"Leerer Stream-Chunk ohne Fehler empfangen.")
-                print(f"Stream von {selected_model_name} beendet.")
-            # Handle potential errors during the generation stream
-            except genai.types.BlockedPromptException as e:
-                 print(f"Stream blockiert (BlockedPromptException): {e}")
-                 yield f'<<ERROR: Anfrage blockiert (Sicherheit)>>'
-            except genai.types.StopCandidateException as e:
-                 reason = e.candidate.finish_reason.name if (e.candidate and e.candidate.finish_reason) else "Unbekannt"
-                 print(f"Stream gestoppt (StopCandidateException - {reason}): {e}")
-                 yield f'<<ERROR: Anfrage gestoppt ({reason})>>'
-            except Exception as e:
-                print(f"Fehler während des Streamings mit {selected_model_name}: {type(e).__name__}: {e}")
-                traceback.print_exc()
-                yield f'<<ERROR: Serverfehler während der Verarbeitung>>'
-
-        # Return the streaming response
-        return Response(stream_with_context(generate_chunks()), mimetype='text/plain; charset=utf-8')
-
-    # Catch errors that occurred before model initialization or streaming start
     except Exception as e:
-        print(f"Fehler vor dem Streamen in /process_image: {type(e).__name__}: {e}")
-        traceback.print_exc()
-        return jsonify({"error": f"Ein Serverfehler ist vor der Verarbeitung aufgetreten."}), 500
+        logging.exception(f"Unhandled error in /process_image before streaming") # Logs traceback
+        # Return JSON here as streaming hasn't started
+        return jsonify({"error": f"A server error occurred before processing could start."}), 500
+
 
 # --- Run the Flask Application ---
 if __name__ == '__main__':
     if not sdk_configured_successfully:
-        print("\n*** Flask Server kann nicht gestartet werden: Gemini SDK konnte nicht initialisiert werden. ***\n")
+        logging.critical("\n*** Flask server cannot start: Gemini SDK configuration failed. Check logs. ***\n")
     else:
-        print("Starte Flask Server...")
+        logging.info("Starting Flask server...")
+        # Use threaded=True for handling multiple requests during streaming
+        # Set debug=False for production/testing (reloader can interfere with state)
+        # Host 0.0.0.0 makes it accessible on the network
         app.run(debug=False, host='0.0.0.0', port=5000, threaded=True)

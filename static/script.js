@@ -1,30 +1,30 @@
 /**
- * OCR Chatbot Frontend Script v8 (Multilingual)
+ * OCR Chatbot Frontend Script v10 (Model Select, Language Fix)
  *
- * Handles file uploads, previews, API interaction (streaming), language selection,
- * theme toggling, and UI state management for the Gemini OCR Assistant.
- * Includes persistent status bar with letter-wave animation.
+ * Handles uploads, previews, streaming API interaction, language/theme selection,
+ * UI state management, status bar, i18n via JSON, ARIA, smooth scroll, and model selection.
+ * Fixes issue where OCR text disappeared on language change.
  */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     // --- DOM Element References ---
     const ocrForm = document.getElementById('ocr-form');
     const dropZone = document.getElementById('drop-zone');
     const fileInput = document.getElementById('file-input');
     const browseButton = document.getElementById('browse-button');
     const previewArea = document.getElementById('preview-area');
-    const previewContainer = document.getElementById('preview-container');
     const imagePreview = document.getElementById('image-preview');
     const pdfPreviewIcon = document.getElementById('pdf-preview-icon');
     const filenameDisplay = document.getElementById('filename-display');
     const removeImageButton = document.getElementById('remove-image-button');
     const instructionsInput = document.getElementById('instructions');
-    // Removed modelSelect reference
+    const modelSelect = document.getElementById('model-select'); // <-- New
     const submitButton = document.getElementById('submit-button');
     const resetButton = document.getElementById('reset-button');
     const outputPlaceholder = document.getElementById('output-placeholder');
     const errorBanner = document.getElementById('error-banner');
     const errorMessage = document.getElementById('error-message');
     const closeErrorButton = document.getElementById('close-error-button');
+    const inputPanel = document.getElementById('input-panel');
     const outputPanel = document.getElementById('output-panel');
     const resultArea = document.getElementById('result-area');
     const statusBar = document.getElementById('status-bar');
@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusText = document.getElementById('status-text');
     const extractedTextElement = document.getElementById('extracted-text');
     const copyButton = document.getElementById('copy-button');
-    const languageSelect = document.getElementById('language-select'); // Language dropdown
+    const languageSelect = document.getElementById('language-select');
     const themeToggleButton = document.getElementById('theme-toggle');
     const themeIcon = themeToggleButton.querySelector('.material-symbols-outlined');
 
@@ -40,115 +40,18 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentFile = null;
     const decoder = new TextDecoder();
     let currentLang = 'de'; // Default language
-
-    // --- UI String Translations ---
-    const uiStrings = {
-        de: {
-            // --- Keys must match data-translate-key attributes in HTML or be used directly in JS ---
-            appTitle: "Gemini OCR Assistent",
-            langSelectLabel: "Sprache auswählen",
-            themeToggleLabel: "Design wechseln",
-            errorCloseLabel: "Fehler schließen",
-            placeholderText: "Laden Sie eine Datei (Bild/PDF) hoch und klicken Sie auf 'PDF/Bild OCR starten', um Ergebnisse zu sehen",
-            uploadHeading: "Datei hochladen",
-            dropzoneText: "Datei hierher ziehen oder",
-            dropzoneAriaLabel: "Datei-Dropzone oder zum Durchsuchen klicken",
-            browseButton: "Dateien durchsuchen",
-            helperText: "Unterstützt PNG, JPG, WEBP, PDF. Max. 20MB.",
-            previewLabel: "Vorschau:",
-            imagePreviewAlt: "Bildvorschau",
-            removeFileAriaLabel: "Datei entfernen",
-            instructionsLabel: "Zusätzliche Anweisungen (Optional)",
-            instructionsPlaceholder: "z.B. Nur Tabellendaten extrahieren, Dokument zusammenfassen, Adresse identifizieren",
-            submitButton: "PDF/Bild OCR starten",
-            resetButton: "Neu starten",
-            resultsHeading: "OCR Ergebnis",
-            copyButton: "Text kopieren",
-            copyButtonAriaLabel: "Extrahierten Text kopieren",
-            copiedSuccess: "Kopiert!",
-            extractedTextPlaceholder: "OCR Ergebnis wird hier angezeigt...",
-            // Status Bar Messages (Keys used in updateStatusBar)
-            statusInitial: "Bitte Datei hochladen.",
-            statusReady: "Bereit. Klicken Sie auf 'PDF/Bild OCR starten'.",
-            statusThinking: "KI denkt nach...",
-            statusWriting: "Die KI schreibt...",
-            statusDone: "Fertig! Text mit Kopieren-Button entnehmen.",
-            statusEmpty: "Kein Text gefunden oder extrahiert.",
-            statusError: "Fehler bei der Analyse",
-            statusStopped: "Analyse gestoppt", // Generic stop
-            statusBlockedSafety: "Anfrage blockiert (Sicherheit)",
-            statusBlockedRecitation: "Anfrage blockiert (Zitierung)",
-            // Error Messages (Keys used in showError)
-            errorNoFile: "Bitte wählen Sie zuerst eine Datei aus.",
-            errorInvalidType: "Ungültiger Dateityp: {fileType}. Bitte PNG, JPG, WEBP oder PDF verwenden.", // Placeholder {fileType}
-            errorSizeLimit: "Dateigröße überschreitet das 20MB-Limit.",
-            errorFileEmpty: "Datei scheint leer zu sein.",
-            errorReadImage: "Die ausgewählte Bilddatei konnte nicht gelesen werden.",
-            errorFetch: "Anfrage fehlgeschlagen mit Status: {status}", // Placeholder {status}
-            errorNoStream: "Antwort enthält keinen Stream-Body.",
-            errorDecode: "<<DECODING ERROR>>", // Keep technical markers
-            errorInternalStream: "{internalError}", // Placeholder for backend stream errors
-            errorUnexpectedFormat: "Unerwartetes Antwortformat vom Server erhalten.",
-            errorUnknown: "Ein unbekannter Fehler ist aufgetreten.",
-            errorCopy: "Text konnte nicht in die Zwischenablage kopiert werden. Bitte manuell versuchen.",
-            errorModelSelect: "Fehler bei Auswahl des Modells '{modelName}'. Existiert es oder haben Sie Zugriff?" // Although model select is removed, keep for potential future use or debugging backend issues
-        },
-        en: {
-            // --- English Translations ---
-            appTitle: "Gemini OCR Assistant",
-            langSelectLabel: "Select Language",
-            themeToggleLabel: "Toggle Theme",
-            errorCloseLabel: "Close error",
-            placeholderText: "Upload a file (Image/PDF) and click 'Start PDF/Image OCR' to see results",
-            uploadHeading: "Upload File",
-            dropzoneText: "Drag & drop a file here, or",
-            dropzoneAriaLabel: "File drop zone or click to browse",
-            browseButton: "Browse files",
-            helperText: "Supports PNG, JPG, WEBP, PDF. Max 20MB.",
-            previewLabel: "Preview:",
-            imagePreviewAlt: "Image preview",
-            removeFileAriaLabel: "Remove file",
-            instructionsLabel: "Custom Instructions (Optional)",
-            instructionsPlaceholder: "e.g., Extract table data only, Summarize the document, Identify the address",
-            submitButton: "Start PDF/Image OCR",
-            resetButton: "Start New",
-            resultsHeading: "OCR Result",
-            copyButton: "Copy Text",
-            copyButtonAriaLabel: "Copy extracted text",
-            copiedSuccess: "Copied!",
-            extractedTextPlaceholder: "OCR Result will be displayed here...",
-            // Status Bar Messages
-            statusInitial: "Please upload a file.",
-            statusReady: "Ready. Click 'Start PDF/Image OCR'.",
-            statusThinking: "AI is thinking...",
-            statusWriting: "AI is writing...",
-            statusDone: "Done! Use the copy button to get the text.",
-            statusEmpty: "No text found or extracted.",
-            statusError: "Analysis failed",
-            statusStopped: "Analysis stopped",
-            statusBlockedSafety: "Request blocked (Safety)",
-            statusBlockedRecitation: "Request blocked (Recitation)",
-            // Error Messages
-            errorNoFile: "Please select a file first.",
-            errorInvalidType: "Invalid file type: {fileType}. Please use PNG, JPG, WEBP, or PDF.",
-            errorSizeLimit: "File size exceeds the 20MB limit.",
-            errorFileEmpty: "File appears to be empty.",
-            errorReadImage: "Could not read the selected image file.",
-            errorFetch: "Request failed with status: {status}",
-            errorNoStream: "Response does not contain a stream body.",
-            errorDecode: "<<DECODING ERROR>>",
-            errorInternalStream: "{internalError}",
-            errorUnexpectedFormat: "Received an unexpected response format from the server.",
-            errorUnknown: "An unknown error occurred.",
-            errorCopy: "Could not copy text to clipboard. Please try manually.",
-            errorModelSelect: "Error selecting model '{modelName}'. Does it exist or do you have access?"
-        }
+    let uiStrings = {}; // Object to hold loaded translations
+    const supportedLangs = ['de', 'en']; // Available languages
+    let currentStatusState = { // Store current status details
+        icon: 'upload_file',
+        key: 'statusInitial',
+        isWave: false,
+        data: {}
     };
-
 
     // --- Event Listeners ---
     browseButton.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('click', (e) => { if (e.target !== browseButton) fileInput.click(); });
+    dropZone.addEventListener('click', (e) => { if (e.target !== browseButton && e.target !== browseButton.parentNode) fileInput.click(); }); // Prevent click on button triggering dropzone click
     dropZone.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') fileInput.click(); });
     fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
     dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
@@ -160,14 +63,14 @@ document.addEventListener('DOMContentLoaded', () => {
     copyButton.addEventListener('click', copyResultText);
     themeToggleButton.addEventListener('click', toggleTheme);
     closeErrorButton.addEventListener('click', hideError);
-    languageSelect.addEventListener('change', handleLanguageChange); // Listener for language change
+    languageSelect.addEventListener('change', handleLanguageChange);
 
     // --- Core Functions ---
 
     /** Form submission handler. */
     async function handleFormSubmit(e) {
          e.preventDefault();
-         if (!currentFile) { showError("errorNoFile"); return; } // Use translation key
+         if (!currentFile) { showError("errorNoFile"); return; }
          await processImageStream();
     }
 
@@ -177,25 +80,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const file = files[0];
         const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'application/pdf'];
         const maxSize = 20 * 1024 * 1024;
-
-        hideError();
-
-        if (!allowedTypes.includes(file.type)) { showError("errorInvalidType", { fileType: file.type || 'unbekannt' }); fileInput.value = ''; return; } // Pass data
+        hideError(); // Clear previous errors first
+        if (!allowedTypes.includes(file.type)) { showError("errorInvalidType", { fileType: file.type || 'unknown' }); fileInput.value = ''; return; }
         if (file.size > maxSize) { showError("errorSizeLimit"); fileInput.value = ''; return; }
         if (file.size === 0) { showError("errorFileEmpty"); fileInput.value = ''; return; }
-
         currentFile = file;
         displayPreview(file);
         submitButton.disabled = false;
         outputPlaceholder.hidden = true;
-        clearResultArea(); // Will set statusReady message
+        // Set status to 'Ready' when a valid file is selected
+        updateStatusBar('arrow_forward', "statusReady");
     }
 
     /** Displays image thumbnail or PDF icon. */
     function displayPreview(file) {
         filenameDisplay.textContent = file.name;
         imagePreview.hidden = true; pdfPreviewIcon.hidden = true;
-
         if (file.type.startsWith('image/')) {
             const reader = new FileReader();
             reader.onload = (e) => { imagePreview.src = e.target.result; imagePreview.hidden = false; }
@@ -207,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
         previewArea.hidden = false; dropZone.hidden = true;
     }
 
-    /** Resets file input and preview area. */
+    /** Resets file input and preview area, CLEARS results, resets status. */
     function removePreview() {
         currentFile = null; fileInput.value = '';
         imagePreview.src = '#'; imagePreview.hidden = true; pdfPreviewIcon.hidden = true;
@@ -215,36 +115,66 @@ document.addEventListener('DOMContentLoaded', () => {
         previewArea.hidden = true; dropZone.hidden = false;
         submitButton.disabled = true;
         outputPlaceholder.hidden = false;
-        clearResultArea(); hideError();
+        extractedTextElement.textContent = ''; // Explicitly clear text here on remove/reset
+        updateStatusBar('upload_file', "statusInitial"); // Reset status to initial
+        hideError();
     }
 
-    /** Updates UI element disabled states during processing. */
+    /** Updates UI element disabled states and ARIA busy attributes. */
     function setFormInputsDisabled(isDisabled) {
-        // Include language select in elements to disable during processing
-        const elementsToDisable = [submitButton, resetButton, instructionsInput, languageSelect, removeImageButton, fileInput, browseButton, dropZone];
-        elementsToDisable.forEach(el => el.disabled = isDisabled);
+        // Include modelSelect in the list of elements to disable
+        const elementsToDisable = [
+            submitButton, resetButton, instructionsInput, languageSelect,
+            removeImageButton, fileInput, browseButton, dropZone, modelSelect
+        ];
+        elementsToDisable.forEach(el => { if(el) el.disabled = isDisabled }); // Check if el exists
         dropZone.style.pointerEvents = isDisabled ? 'none' : 'auto';
+        dropZone.setAttribute('tabindex', isDisabled ? '-1' : '0'); // Make non-interactive when disabled
+
+        // Update ARIA busy states
+        const busyValue = isDisabled ? 'true' : 'false';
+        ocrForm.setAttribute('aria-busy', busyValue);
+        outputPanel.setAttribute('aria-busy', busyValue);
     }
+
+    /** Gets the translated string for a given key and optional data. */
+     function getTranslation(key, data = {}) {
+        // Fallback to English if current language or key is missing
+        const langPack = uiStrings[currentLang] || uiStrings['en'] || {};
+        let text = langPack[key] !== undefined ? langPack[key] : key;
+        if (text === key && currentLang !== 'en' && uiStrings['en'] && uiStrings['en'][key]) {
+            text = uiStrings['en'][key] + ` [${key}]`; // Show fallback + key if primary fails
+            console.warn(`Translation key "${key}" missing for "${currentLang}", using English fallback.`);
+        } else if (text === key) {
+             console.warn(`Translation key "${key}" missing for "${currentLang}" and no English fallback.`);
+        }
+
+        for (const dataKey in data) {
+            text = text.replace(`{${dataKey}}`, data[dataKey]);
+        }
+        return text;
+    }
+
 
     /**
-     * Updates the persistent status bar content and appearance.
+     * Updates the persistent status bar content and appearance, storing the state.
      * @param {string | null} iconName - Material Symbol name or null.
-     * @param {string} textKey - The key for the translation string in uiStrings.
-     * @param {boolean} addWave - Whether to apply the letter wave animation.
-     * @param {object} [data={}] - Optional data for placeholders in the text string.
+     * @param {string} textKey - The key for the translation string.
+     * @param {boolean} [addWave=false] - Whether to apply the letter wave animation.
+     * @param {object} [data={}] - Optional data for placeholders.
      */
     function updateStatusBar(iconName, textKey, addWave = false, data = {}) {
+        // Store the current state
+        currentStatusState = { icon: iconName, key: textKey, isWave: addWave, data: data };
+
+        // Update the UI
         if (iconName) { statusIcon.textContent = iconName; statusIcon.hidden = false; }
         else { statusIcon.hidden = true; }
 
-        let text = uiStrings[currentLang][textKey] || textKey; // Get translated text or use key as fallback
-        // Replace placeholders in text
-        for (const key in data) {
-            text = text.replace(`{${key}}`, data[key]);
-        }
+        let text = getTranslation(textKey, data);
 
-        statusText.innerHTML = ''; // Clear previous content
-        statusText.classList.remove('wave-animation');
+        statusText.innerHTML = ''; // Clear previous
+        statusText.classList.remove('wave-animation'); // Remove wave by default
 
         if (addWave) {
             text.split('').forEach((char, index) => {
@@ -260,81 +190,73 @@ document.addEventListener('DOMContentLoaded', () => {
         statusBar.hidden = false;
     }
 
-    /**
-     * Displays an error message in the banner and updates status bar.
-     * @param {string} messageKey - The key for the error string in uiStrings.
-     * @param {object} [data={}] - Optional data for placeholders in the error string.
-     */
+    /** Displays an error message, updates status to error, sets ARIA describedby. */
     function showError(messageKey, data = {}) {
-        let message = uiStrings[currentLang][messageKey] || messageKey; // Get translated message
-         // Replace placeholders
-        for (const key in data) {
-            message = message.replace(`{${key}}`, data[key]);
-        }
-
+        const message = getTranslation(messageKey, data);
         errorMessage.textContent = message;
         errorBanner.hidden = false;
         outputPlaceholder.hidden = currentFile !== null;
-        updateStatusBar('error', "statusError", false); // Show error status
+        updateStatusBar('error', "statusError", false); // Update status bar to error state
+        inputPanel.setAttribute('aria-describedby', 'error-message');
     }
 
-    /** Hides the error banner. */
+    /** Hides the error banner and removes ARIA describedby. */
     function hideError() {
         errorBanner.hidden = true;
         errorMessage.textContent = '';
+        inputPanel.removeAttribute('aria-describedby');
     }
 
-    /** Clears the result text area and resets the status bar. */
-     function clearResultArea() {
-        extractedTextElement.textContent = '';
-        if (currentFile) {
-            updateStatusBar('arrow_forward', "statusReady");
-        } else {
-            updateStatusBar('upload_file', "statusInitial");
-        }
-    }
-
-    /** Resets the entire UI to the initial state. */
+    /** Resets the entire UI to the initial state (including clearing text). */
     function resetUI() {
-        removePreview(); // Handles placeholder, error, results, status bar reset
+        // removePreview handles file, preview, placeholder, disabling submit,
+        // hiding errors, and resetting status to initial.
+        // It now also clears the extractedTextElement.
+        removePreview();
         instructionsInput.value = '';
-        // Status bar reset is handled within removePreview -> clearResultArea
+        modelSelect.value = "gemini-2.5-pro-exp-03-25"; // Reset model select to default
     }
 
-    /** Initiates the fetch request and processes the streamed response. */
+    /** Initiates fetch and processes the streamed response with smooth scrolling. */
     async function processImageStream() {
         setFormInputsDisabled(true);
         hideError();
-        extractedTextElement.textContent = '';
-        updateStatusBar('neurology', "statusThinking", true); // Thinking status WITH wave
+        // DO NOT clear extractedTextElement here - allow reprocessing with different model/instructions
+        // extractedTextElement.textContent = '';
+        updateStatusBar('neurology', "statusThinking", true);
 
         const formData = new FormData();
         formData.append('image', currentFile);
         formData.append('instructions', instructionsInput.value);
-        // No need to send model name anymore as it's fixed in backend
+        formData.append('model_name', modelSelect.value); // <-- Send selected model
 
         let streamFinishedSuccessfully = false;
-        let streamErrorMessageKey = null; // Store the error key
-        let streamErrorData = {}; // Store data for error message placeholders
+        let streamErrorMessageKey = null;
+        let streamErrorData = {};
+        let isFirstChunk = true;
+        extractedTextElement.textContent = ''; // Clear previous results *before* new stream starts
 
         try {
             const response = await fetch('/process_image', { method: 'POST', body: formData });
 
             if (!response.ok) {
-                let errorData = { error: uiStrings[currentLang].errorFetch.replace('{status}', response.status) }; // Default fetch error
-                try { errorData = await response.json(); } catch (e) {} // Try to parse specific error
-                streamErrorMessageKey = "errorUnknown"; // Default key if backend doesn't provide one
-                if (errorData.error) {
-                    // Use backend error message directly if provided (might not be a key)
-                    streamErrorMessageKey = errorData.error;
+                let errorData;
+                try { errorData = await response.json(); } catch (e) {}
+                streamErrorMessageKey = errorData?.error || "errorFetch";
+                // Try to use specific backend error messages if they are translation keys
+                if (errorData?.error && !getTranslation(errorData.error).startsWith(errorData.error)) {
+                    streamErrorMessageKey = errorData.error; // Use the key if it exists
+                    streamErrorData = {};
+                } else {
+                    streamErrorMessageKey = "errorFetch"; // Fallback key
+                    streamErrorData = { status: response.status, details: errorData?.error }; // Include details
                 }
-                throw new Error(streamErrorMessageKey); // Throw to be caught below
+                throw new Error(streamErrorMessageKey);
             }
             if (!response.body) { streamErrorMessageKey = "errorNoStream"; throw new Error(streamErrorMessageKey); }
 
             const reader = response.body.getReader();
             let done = false;
-            let isFirstChunk = true;
 
             while (!done) {
                 const { value, done: streamDone } = await reader.read();
@@ -342,62 +264,62 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (value) {
                     let chunkText;
                     try { chunkText = decoder.decode(value, { stream: true }); }
-                    catch (e) { console.error("Decoding error:", e); chunkText = uiStrings[currentLang].errorDecode; done = true; }
+                    catch (e) { console.error("Decoding error:", e); chunkText = `\n[${getTranslation("errorDecode")}]\n`; done = true; }
 
-                    if(chunkText.startsWith("<<ERROR:")) {
+                    // Check for specific error markers from backend
+                    if(chunkText && chunkText.startsWith("<<ERROR:")) {
                          const internalError = chunkText.split("<<ERROR:")[1].split(">>")[0].trim();
                          console.error("Backend Stream Error:", internalError);
-                         // Try to map backend errors to translation keys, or use directly
-                         if (internalError.includes("Sicherheit")) streamErrorMessageKey = "statusBlockedSafety";
-                         else if (internalError.includes("Zitierung")) streamErrorMessageKey = "statusBlockedRecitation";
-                         else if (internalError.includes("gestoppt")) streamErrorMessageKey = "statusStopped";
-                         else { streamErrorMessageKey = "errorInternalStream"; streamErrorData = { internalError: internalError }; } // Pass raw error
-                         done = true; // Stop processing on internal error
+                         // Map backend error hints to translation keys
+                         if (internalError.includes("Safety") || internalError.includes("Sicherheit")) streamErrorMessageKey = "statusBlockedSafety";
+                         else if (internalError.includes("Recitation") || internalError.includes("Zitierung")) streamErrorMessageKey = "statusBlockedRecitation";
+                         else if (internalError.includes("stopped") || internalError.includes("gestoppt")) streamErrorMessageKey = "statusStopped";
+                         else { streamErrorMessageKey = "errorInternalStream"; streamErrorData = { internalError: internalError }; }
+                         done = true;
                     } else if (chunkText) {
                         if (isFirstChunk) {
-                            updateStatusBar('edit', "statusWriting", true); // Writing status WITH wave
+                            updateStatusBar('edit', "statusWriting", true);
                             isFirstChunk = false;
                         }
                         extractedTextElement.textContent += chunkText;
-                        outputPanel.scrollTop = outputPanel.scrollHeight;
+                        outputPanel.scrollTop = outputPanel.scrollHeight; // Smooth scroll
                     }
                 }
             } // End while
 
-            if (!streamErrorMessageKey) { // If no internal error marker was found
+            if (!streamErrorMessageKey) {
                  streamFinishedSuccessfully = true;
-                 console.log("Stream vollständig gelesen.");
-                 if (isFirstChunk) { // Handle empty stream
+                 console.log("Stream finished.");
+                 if (isFirstChunk) { // Handle empty stream case
                       updateStatusBar('block', "statusEmpty", false);
+                 } else {
+                      updateStatusBar('done_all', "statusDone", false); // Success with content
                  }
             }
 
         } catch (error) {
-            console.error("Fehler während Fetch oder Stream-Verarbeitung:", error);
-            // Use the messageKey if already set, otherwise use a generic one
+            console.error("Error during fetch/stream:", error);
             streamErrorMessageKey = streamErrorMessageKey || "errorUnknown";
-            // If the error object has a specific message (like from fetch failure), use it.
-            // This might overwrite a more specific key determined earlier if fetch itself fails.
-            if (error.message && !streamErrorData.internalError) {
-                streamErrorMessageKey = error.message; // Use raw message if it's likely a network/fetch error
+            // Ensure the thrown key is used if it's a valid translation key
+            if (!getTranslation(error.message).startsWith(error.message)) {
+                streamErrorMessageKey = error.message;
             }
-            showError(streamErrorMessageKey, streamErrorData);
+            showError(streamErrorMessageKey, streamErrorData); // Show error sets status bar
+
         } finally {
             setFormInputsDisabled(false);
-            // Set final status message *only if* no error banner is currently shown
+             // If no error was explicitly shown, ensure the final status (Done/Empty) is set.
+             // If an error *was* shown, the status bar is already correctly set to 'Error'.
             if (errorBanner.hidden) {
                  if (streamFinishedSuccessfully && !isFirstChunk) {
+                      // Ensure 'Done' status is set if stream ended ok and wasn't empty
                      updateStatusBar('done_all', "statusDone", false);
                  } else if (streamFinishedSuccessfully && isFirstChunk) {
+                      // Ensure 'Empty' status is set if stream ended ok but was empty
                      updateStatusBar('block', "statusEmpty", false);
                  }
-                 else if (!streamFinishedSuccessfully){
-                      // This case means an error happened but wasn't displayed via showError
-                      updateStatusBar('error', "statusError", false);
-                 }
-            } else {
-                 // Ensure status bar shows error if banner is visible
-                 updateStatusBar('error', "statusError", false);
+                 // If !streamFinishedSuccessfully and no error banner shown, something odd happened.
+                 // The showError in catch should handle setting the status bar for errors.
             }
         }
     } // End processImageStream
@@ -405,121 +327,174 @@ document.addEventListener('DOMContentLoaded', () => {
     /** Copies extracted text to clipboard. */
      function copyResultText() {
         const textToCopy = extractedTextElement.textContent;
-        if (!textToCopy || textToCopy === uiStrings[currentLang].statusEmpty) return; // Check translated empty message
-
+        if (!textToCopy || textToCopy === getTranslation("statusEmpty")) return;
         navigator.clipboard.writeText(textToCopy)
             .then(() => {
-                const copyButtonContent = copyButton.innerHTML;
-                // Use translated success message
-                copyButton.innerHTML = `<span class="material-symbols-outlined">check</span> ${uiStrings[currentLang].copiedSuccess}`;
+                const originalButtonContent = copyButton.innerHTML;
+                const successText = getTranslation("copiedSuccess");
+                copyButton.innerHTML = `<span class="material-symbols-outlined">check</span> ${successText}`;
                 copyButton.disabled = true;
-                setTimeout(() => { copyButton.innerHTML = copyButtonContent; applyTranslations(currentLang); copyButton.disabled = false; }, 2000); // Re-apply translation to restore original text
+
+                setTimeout(() => {
+                    copyButton.innerHTML = originalButtonContent;
+                    const textNode = Array.from(copyButton.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
+                    if (textNode) {
+                        textNode.nodeValue = ` ${getTranslation("copyButton")}`;
+                    }
+                    copyButton.disabled = false;
+                }, 2000);
             })
             .catch(err => {
-                console.error('Kopieren fehlgeschlagen: ', err);
-                 alert(uiStrings[currentLang].errorCopy); // Use translated error alert
+                console.error('Copy failed: ', err);
+                 alert(getTranslation("errorCopy"));
             });
     } // End copyResultText
 
     // --- Language Handling ---
 
+    /** Fetches and loads the translation file. */
+    async function loadTranslations(lang) {
+        if (uiStrings[lang]) return true;
+        try {
+            const response = await fetch(`locales/${lang}.json?v=${Date.now()}`); // Cache bust
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            uiStrings[lang] = await response.json();
+            console.log(`Translations for ${lang} loaded.`);
+            return true;
+        } catch (error) {
+            console.error(`Failed to load translations for ${lang}:`, error);
+            return false;
+        }
+    }
+
     /**
-     * Applies translations to all targeted UI elements.
-     * @param {'de' | 'en'} lang - The language code to apply.
+     * Applies translations to UI elements, preserving result text
+     * and updating the status bar text for the current state.
      */
     function applyTranslations(lang) {
         if (!uiStrings[lang]) {
-            console.error("Invalid language selected:", lang);
-            return;
-        }
-        currentLang = lang; // Update global current language
-        document.documentElement.lang = lang; // Update HTML lang attribute
+            console.error(`Translations not loaded for language: ${lang}`);
+            return; // Avoid errors if JSON failed to load
+         }
+        currentLang = lang;
+        document.documentElement.lang = lang;
 
-        // Update elements with data-translate-key attribute
+        // Update elements with data-translate attributes
         document.querySelectorAll('[data-translate-key]').forEach(el => {
             const key = el.getAttribute('data-translate-key');
-            if (uiStrings[lang][key]) {
-                el.textContent = uiStrings[lang][key];
-            }
+            el.textContent = getTranslation(key);
         });
-
-        // Update elements with data-translate-placeholder-key attribute
         document.querySelectorAll('[data-translate-placeholder-key]').forEach(el => {
             const key = el.getAttribute('data-translate-placeholder-key');
-            if (uiStrings[lang][key]) {
-                el.placeholder = uiStrings[lang][key];
-            }
-            // Special case for empty <pre> placeholder
-             if (el.id === 'extracted-text' && uiStrings[lang][key]) {
-                 el.setAttribute('data-placeholder', uiStrings[lang][key]);
+            el.placeholder = getTranslation(key);
+            if (el.id === 'extracted-text') {
+                 el.setAttribute('data-placeholder', getTranslation(key));
             }
         });
-
-         // Update elements with data-translate-aria-key attribute
          document.querySelectorAll('[data-translate-aria-key]').forEach(el => {
             const key = el.getAttribute('data-translate-aria-key');
-            if (uiStrings[lang][key]) {
-                el.setAttribute('aria-label', uiStrings[lang][key]);
-            }
+            el.setAttribute('aria-label', getTranslation(key));
         });
-
-         // Update elements with data-translate-alt-key attribute
          document.querySelectorAll('[data-translate-alt-key]').forEach(el => {
             const key = el.getAttribute('data-translate-alt-key');
-            if (uiStrings[lang][key]) {
-                el.alt = uiStrings[lang][key];
-            }
+            el.alt = getTranslation(key);
         });
 
-        // Manually update elements without data attributes if necessary
-        document.getElementById('app-title').textContent = uiStrings[lang].appTitle;
-        document.getElementById('language-select').setAttribute('aria-label', uiStrings[lang].langSelectLabel);
-        document.getElementById('theme-toggle').setAttribute('aria-label', uiStrings[lang].themeToggleLabel);
-        document.getElementById('close-error-button').setAttribute('aria-label', uiStrings[lang].errorCloseLabel);
+        // Manually update specific elements
+        document.getElementById('app-title').textContent = getTranslation("appTitle");
+        document.getElementById('language-select').setAttribute('aria-label', getTranslation("langSelectLabel"));
+        document.getElementById('theme-toggle').setAttribute('aria-label', getTranslation("themeToggleLabel"));
+        document.getElementById('close-error-button').setAttribute('aria-label', getTranslation("errorCloseLabel"));
 
+        // --- Language Fix: Update Status Bar Text ONLY ---
+        // Re-apply the *current* status using the new language.
+        // It uses the stored currentStatusState (icon, key, wave, data).
+        updateStatusBar(currentStatusState.icon, currentStatusState.key, currentStatusState.isWave, currentStatusState.data);
 
-        // Re-apply current status bar text in the new language
-        // Determine current status key based on UI state or a stored variable if needed
-        let currentStatusKey = 'statusInitial'; // Default
-        if (currentFile && submitButton.disabled === false) currentStatusKey = 'statusReady';
-        // Add more logic here if you need to preserve the exact status across language switches
-        // For simplicity, we'll just reset to 'Ready' or 'Initial' based on file presence.
-        updateStatusBar(
-            statusBar.querySelector('.status-icon')?.textContent || 'upload_file', // Keep current icon
-            currentStatusKey,
-            statusText.classList.contains('wave-animation') // Keep wave if it was active
-        );
+        // Update copy button text (if not showing "Copied!")
+        const copyButtonTextNode = Array.from(copyButton.childNodes).find(node => node.nodeType === Node.TEXT_NODE);
+        if (copyButtonTextNode && !copyButton.textContent.includes(getTranslation("copiedSuccess"))) {
+             copyButtonTextNode.nodeValue = ` ${getTranslation("copyButton")}`;
+        }
 
-         // Update copy button text if it's not showing "Copied!"
-         if (!copyButton.textContent.includes(uiStrings[lang].copiedSuccess)) {
-             copyButton.childNodes[1].nodeValue = ` ${uiStrings[lang].copyButton}`; // Update text node
-         }
+        // Re-translate error message if visible
+        if (!errorBanner.hidden) {
+            // Assume the currentStatusState.key holds the error key if status is 'error'
+            if (currentStatusState.key === 'statusError' && currentStatusState.data && currentStatusState.data.messageKey) {
+                 errorMessage.textContent = getTranslation(currentStatusState.data.messageKey, currentStatusState.data.messageData || {});
+            } else if (currentStatusState.key === 'statusError') {
+                 errorMessage.textContent = getTranslation('errorUnknown'); // Fallback if details missing
+            }
+        }
     }
 
-    /** Handles the language selection change event. */
-    function handleLanguageChange(e) {
+    /** Handles language selection change. */
+    async function handleLanguageChange(e) {
         const newLang = e.target.value;
-        localStorage.setItem('selectedLanguage', newLang); // Save preference
-        applyTranslations(newLang);
+        if (!supportedLangs.includes(newLang)) return;
+
+        const loaded = await loadTranslations(newLang);
+        if (loaded) {
+             localStorage.setItem('selectedLanguage', newLang);
+             applyTranslations(newLang); // Apply new language
+        } else {
+            languageSelect.value = currentLang; // Revert dropdown
+            alert(`Failed to load ${newLang} translations.`);
+        }
     }
 
-    /** Sets the initial language based on saved preference or default. */
-    function initializeLanguage() {
+    /** Sets initial language. */
+    async function initializeLanguage() {
         const savedLang = localStorage.getItem('selectedLanguage');
-        const initialLang = savedLang && uiStrings[savedLang] ? savedLang : 'de'; // Default to German
-        languageSelect.value = initialLang; // Set dropdown value
-        applyTranslations(initialLang); // Apply translations
+        const initialLang = (savedLang && supportedLangs.includes(savedLang)) ? savedLang : 'de';
+        languageSelect.value = initialLang;
+
+        // Try loading English first as a fallback
+        await loadTranslations('en');
+        // Then load the initial language
+        const loaded = await loadTranslations(initialLang);
+
+        if (loaded || uiStrings['en']) { // Proceed if initial lang loaded OR English fallback exists
+             applyTranslations(initialLang); // Apply (will use English if initial failed but EN loaded)
+        } else {
+             document.body.innerHTML = `<p style="padding:20px; color:red;">Fatal Error: Could not load core language files (en.json). App cannot start.</p>`;
+             throw new Error("Failed to load essential language files."); // Stop execution
+        }
     }
 
+    // --- Theme Handling --- (Code unchanged from previous step)
+    function applyTheme(theme) { /* ... */ }
+    function toggleTheme() { /* ... */ }
+    function initializeTheme() { /* ... */ }
+     /** Applies theme and updates icon. */
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        themeIcon.textContent = theme === 'dark' ? 'light_mode' : 'dark_mode';
+        localStorage.setItem('selectedTheme', theme);
+    }
+    /** Toggles theme. */
+    function toggleTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        applyTheme(newTheme);
+    }
+    /** Sets initial theme. */
+    function initializeTheme() {
+        const savedTheme = localStorage.getItem('selectedTheme');
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
+        applyTheme(initialTheme);
+    }
 
-    // --- Theme Handling ---
-    function applyTheme(theme) { /* ... (code unchanged) ... */ }
-    function toggleTheme() { /* ... (code unchanged) ... */ }
-    function initializeTheme() { /* ... (code unchanged) ... */ }
 
     // --- Run Initialization ---
-    initializeTheme();
-    initializeLanguage(); // Initialize language and apply translations
-    resetUI(); // Set initial UI state (which uses the now set language)
+    try {
+        initializeTheme();
+        await initializeLanguage(); // Wait for language to load
+        resetUI(); // Reset UI applies initial status texts based on loaded language
+    } catch (error) {
+        console.error("Initialization failed:", error);
+        // Error is already shown in the body if language load failed critically
+    }
 
 }); // End DOMContentLoaded
